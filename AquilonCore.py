@@ -2,16 +2,70 @@ import string
 
 memory = {
     "name": None,
-    "facts": []}
+    "facts": [],
+    "last_intent": None,
+    "current_intent": None
+}
 
-def generate_response(command):
-    clean_command = command.translate(
+personality = {
+    "name": "Aquilon Core",
+    "style": "formal and helpful"
+}
+# Clean Input
+def clean_input(command):
+    return command.translate(
         str.maketrans("", "", string.punctuation)
-    ).strip()
+    )
+
+# Update conversation state
+def update_context(intent):
+    memory["last_intent"] = memory["current_intent"]
+    memory["current_intent"] = intent
+
+# Detect Intent (Dont touch future me!!!)
+def detect_intent(command):
+    clean_command = clean_input(command)
 
     words = clean_command.split()
-# Help
+
     if clean_command == "help":
+        return "help"
+    elif clean_command.startswith("remember that "):
+        return "remember_fact"
+    elif "remember" in words or "memories" in words:
+        return "retrieve_memory"
+    elif clean_command == "forget everything":
+        return "forget_everything"
+    elif clean_command == "forget my name":
+        return "forget_name"
+    elif clean_command.startswith("forget that"):
+        return "forget_fact"
+    elif clean_command.startswith("my name is "):
+        return "set_name"
+
+    elif "name" in words and (
+        "what" in words or "whats" in words
+        or "tell" in words or "know" in words
+    ):
+        return "retrieve_name"
+
+    elif any(word in words for word in [
+        "hello", "hi", "hey", "morning", "afternoon", "evening"
+    ]):
+        return "greeting"
+    elif "how" in words and "you" in words:
+        return "how_are_you"
+    elif "status" in words:
+        return "status"
+    elif "who" in words and "are" in words and "you" in words:
+        return "identity"
+
+    else:
+        return "unknown"
+# Generate Response
+def respond(intent, clean_command):
+    # Help
+    if intent == "help":
         return (
             "Available commands:\n"
             "1. Help - Show available commands\n"
@@ -28,8 +82,8 @@ def generate_response(command):
             "12. Forget my name - Clear my name\n"
             "13. How are you - Ask Aquilon how it's doing"
         )
-# Memory
-    elif clean_command.startswith("remember that "):
+    # Memory
+    elif intent == "remember_fact":
         fact = clean_command.replace("remember that ", "", 1).strip()
 
         if fact:
@@ -38,25 +92,25 @@ def generate_response(command):
         else:
             return "What would you like me to remember?"
 
-    elif "remember" in words or "memories" in words:
+    elif intent == "retrieve_memory":
         if not memory["facts"]:
             return "I don't remember anything yet."
         else:
             return "I remember:\n- " + "\n- ".join(memory["facts"])
 
-    elif clean_command == "forget everything":
+    elif intent == "forget_everything":
         memory["facts"].clear()
         memory["name"] = None
         return "All memories have been cleared."
 
-    elif clean_command == "forget my name":
+    elif intent == "forget_name":
         if not memory["name"]:
             return "I don't have your name stored."
 
         memory["name"] = None
         return "I have forgotten your name."
 
-    elif clean_command.startswith("forget that"):
+    elif intent == "forget_fact":
         fact = clean_command.replace("forget that", "", 1).strip()
 
         if not fact:
@@ -68,37 +122,49 @@ def generate_response(command):
         else:
             return "I don't remember that."
 
-    elif clean_command.startswith("my name is "):
+    elif intent == "set_name":
         name = clean_command.replace("my name is ", "", 1).strip()
 
         if name:
             memory["name"] = name.title()
             return f"Nice to meet you, {memory['name']}!"
-# Answers
-    elif "name" in words and (
-        "what" in words or "whats" in words
-        or "tell" in words or "know" in words
-    ):
+    # Answers
+    elif intent == "retrieve_name":
         if not memory["name"]:
             return "I don't know your name yet"
         else:
             return f"Your name is {memory['name']}."
 
-    elif any(word in words for word in ["hello", "hi", "hey",
-                                        "morning", "afternoon", "evening"]):
-        return "Greetings! How can I be of service?"
+    elif intent == "greeting":
+        if personality["style"] == "formal and helpful":
+            return "Greetings! How can I be of service?"
+        else:
+            return "Hello! How can I help?"
 
-    elif "how" in words and "you" in words:
-        return "I'm doing well. All systems are operational"
+    elif intent == "how_are_you":
+        if personality["style"] == "formal and helpful":
+            return "I'm doing well. All systems are operational"
+        else:
+            return "I'm doing great! Everything is running smoothly"
 
-    elif "status" in words:
+    elif intent == "status":
         return "All systems are operational.\nCore status - ONLINE"
 
-    elif "who" in words and "are" in words and "you" in words:
-        return "I am Aquilon Core, a Python-based chatbot"
+    elif intent == "identity":
+        return f"I am {personality['name']}, a Python-based chatbot"
+
+    elif intent == "unknown" and memory["last_intent"] == "greeting":
+        return "It seems we're continuing our conversation. How can I help?"
 
     else:
         return "Sorry, I am not sure how to respond to that yet"
+
+def generate_response(command):
+    clean_command = clean_input(command)
+    intent = detect_intent(command)
+    update_context(intent)
+
+    return respond(intent, clean_command)
 
 # Opening and exit
 print("Welcome to Aquilon Core")
